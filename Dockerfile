@@ -9,7 +9,7 @@ COPY pom.xml .
 COPY src ./src
 
 # Le decimos a Docker que compile el proyecto (igual que hacías en tu terminal)
-RUN mvn clean package -DskipTests
+RUN mvn clean package -Dmaven.test.skip=true
 
 # ==========================================
 # ETAPA 2: EJECUCIÓN (El servidor final)

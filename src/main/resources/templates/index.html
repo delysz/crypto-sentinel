@@ -1,105 +1,707 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org" data-bs-theme="dark">
+<html lang="es" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Crypto Sentinel Dashboard</title>
+    <title>Delysz Crypto Sentinel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;700&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        .table-v-align td { vertical-align: middle; }
-        .card { border: none; border-radius: 16px; }
-        .glass-header { backdrop-filter: blur(10px); }
-        /* Mantenemos la gráfica contenida para que no rompa la tabla */
-        .chart-container { width: 120px; height: 40px; margin: 0 auto; }
+        /* ── VARIABLES ──────────────────────────────────────── */
+        :root {
+            --c:  #00ffe7;      /* cyan primary    */
+            --m:  #ff2d78;      /* magenta alert   */
+            --g:  #39ff14;      /* green stable    */
+            --y:  #ffd200;      /* yellow alert    */
+            --bg: #03070f;      /* void black      */
+            --s1: #0a0f1e;      /* surface 1       */
+            --s2: #0d1528;      /* surface 2       */
+            --border: rgba(0,255,231,.18);
+            --glow:   0 0 18px rgba(0,255,231,.35), 0 0 40px rgba(0,255,231,.1);
+            --glow-m: 0 0 18px rgba(255,45,120,.4), 0 0 40px rgba(255,45,120,.12);
+        }
+
+        /* ── RESET & BASE ───────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        html { scroll-behavior: smooth; }
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: var(--bg);
+            color: #c8d8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* ── ANIMATED GRID BACKGROUND ───────────────────────── */
+        body::before {
+            content: '';
+            position: fixed; inset: 0; z-index: 0;
+            background-image:
+                linear-gradient(rgba(0,255,231,.04) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,255,231,.04) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridDrift 40s linear infinite;
+        }
+        @keyframes gridDrift {
+            from { background-position: 0 0, 0 0; }
+            to   { background-position: 0 400px, 0 0; }
+        }
+
+        /* ── SCANLINE OVERLAY ───────────────────────────────── */
+        body::after {
+            content: '';
+            position: fixed; inset: 0; z-index: 1;
+            background: repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 3px,
+                rgba(0,0,0,.08) 3px,
+                rgba(0,0,0,.08) 4px
+            );
+            pointer-events: none;
+        }
+
+        /* Depth blob */
+        .bg-blob {
+            position: fixed; z-index: 0; pointer-events: none;
+            border-radius: 50%; filter: blur(120px); opacity: .12;
+        }
+        .bg-blob-1 { width: 600px; height: 600px; background: var(--c); top: -200px; left: -100px; }
+        .bg-blob-2 { width: 500px; height: 500px; background: var(--m); bottom: -150px; right: -150px; }
+        .bg-blob-3 { width: 300px; height: 300px; background: #7b2fff; top: 40%; left: 50%; transform: translateX(-50%); }
+
+        /* ── EVERYTHING ON TOP OF BG ────────────────────────── */
+        .sentinel-wrap { position: relative; z-index: 2; }
+
+        /* ── NAVBAR ─────────────────────────────────────────── */
+        .navbar {
+            background: rgba(3,7,15,.85) !important;
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border) !important;
+            padding: .75rem 0;
+        }
+        .brand {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: 1.1rem;
+            color: var(--c) !important;
+            text-shadow: var(--glow);
+            letter-spacing: 3px;
+        }
+        .brand .ver {
+            font-size: .65rem;
+            color: rgba(200,216,240,.3);
+            letter-spacing: 1px;
+            font-weight: 400;
+        }
+        .navbar .dot-live {
+            width: 8px; height: 8px;
+            background: var(--g);
+            border-radius: 50%;
+            display: inline-block;
+            box-shadow: 0 0 8px var(--g);
+            animation: blink 1.8s ease-in-out infinite;
+            margin-right: 6px;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+        .btn-hud {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .7rem;
+            letter-spacing: 1px;
+            border: 1px solid var(--c);
+            color: var(--c);
+            background: transparent;
+            border-radius: 3px;
+            padding: .35rem .9rem;
+            transition: all .2s;
+            text-transform: uppercase;
+        }
+        .btn-hud:hover {
+            background: var(--c);
+            color: var(--bg);
+            box-shadow: var(--glow);
+        }
+        .btn-hud-danger {
+            border-color: var(--m);
+            color: var(--m);
+        }
+        .btn-hud-danger:hover {
+            background: var(--m);
+            color: #fff;
+            box-shadow: var(--glow-m);
+        }
+
+        /* ── HERO TITLE ─────────────────────────────────────── */
+        .hero { text-align: center; padding: 3rem 0 1.5rem; }
+        .hero-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .7rem;
+            letter-spacing: 5px;
+            color: rgba(0,255,231,.5);
+            text-transform: uppercase;
+            margin-bottom: .75rem;
+        }
+        .hero-title {
+            font-family: 'Orbitron', monospace;
+            font-weight: 900;
+            font-size: clamp(2.2rem, 6vw, 4.5rem);
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, #00ffe7 0%, #7b2fff 50%, #ff2d78 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 6s ease-in-out infinite;
+            background-size: 300% 300%;
+        }
+        @keyframes shimmer {
+            0%   { background-position: 0%   50%; }
+            50%  { background-position: 100% 50%; }
+            100% { background-position: 0%   50%; }
+        }
+
+        /* glitch on hover */
+        .hero-title:hover { animation: glitch .4s steps(2) forwards; }
+        @keyframes glitch {
+            0%   { text-shadow: -3px 0 var(--m), 3px 0 var(--c); transform: translate(0); }
+            20%  { text-shadow:  3px 0 var(--m),-3px 0 var(--c); transform: translate(-2px, 1px); }
+            40%  { text-shadow: -3px 0 var(--m), 3px 0 var(--c); transform: translate(2px,-1px); }
+            60%  { text-shadow:  3px 0 var(--c),-3px 0 var(--m); transform: translate(-1px,2px); }
+            80%  { text-shadow: -3px 0 var(--c), 3px 0 var(--m); transform: translate(1px,0); }
+            100% { text-shadow: none; transform: translate(0); }
+        }
+
+        .fng-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: .6rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            padding: .5rem 1.4rem;
+            background: rgba(0,255,231,.04);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .85rem;
+            margin-top: 1rem;
+            backdrop-filter: blur(8px);
+        }
+        .fng-badge .label { color: rgba(200,216,240,.4); font-size: .65rem; letter-spacing: 2px; text-transform: uppercase; }
+        .fng-badge.fear { border-color: rgba(255,45,120,.4); color: var(--m); }
+        .fng-badge.greed { border-color: rgba(57,255,20,.4);  color: var(--g); }
+
+        /* ── TELEGRAM BANNER ────────────────────────────────── */
+        .tg-banner {
+            border: 1px solid rgba(0,255,231,.2);
+            border-left: 3px solid var(--c);
+            background: linear-gradient(90deg, rgba(0,255,231,.06) 0%, rgba(0,255,231,.02) 100%);
+            border-radius: 4px;
+            padding: 1.25rem 1.75rem;
+            margin-bottom: 2.5rem;
+            animation: fadeSlideDown .6s ease both;
+        }
+        @keyframes fadeSlideDown {
+            from { opacity:0; transform:translateY(-12px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        .tg-banner h4 {
+            font-family: 'Orbitron', monospace;
+            font-size: .85rem;
+            letter-spacing: 2px;
+            color: var(--c);
+            margin-bottom: .3rem;
+        }
+        .tg-banner p { font-size: .9rem; color: rgba(200,216,240,.55); }
+        .btn-tg {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .72rem;
+            letter-spacing: 1px;
+            background: var(--c);
+            color: var(--bg);
+            border: none;
+            border-radius: 3px;
+            padding: .5rem 1.2rem;
+            font-weight: 700;
+            white-space: nowrap;
+            transition: all .2s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: .5rem;
+        }
+        .btn-tg:hover { background: #fff; color: var(--bg); box-shadow: 0 0 24px rgba(0,255,231,.5); }
+
+        /* ── UTILITY CARDS ──────────────────────────────────── */
+        .hud-card {
+            background: rgba(10,15,30,.7);
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            backdrop-filter: blur(12px);
+            padding: 1.5rem;
+            height: 100%;
+            animation: fadeSlideUp .5s ease both;
+        }
+        @keyframes fadeSlideUp {
+            from { opacity:0; transform:translateY(16px); }
+            to   { opacity:1; transform:translateY(0); }
+        }
+        .hud-card-title {
+            font-family: 'Orbitron', monospace;
+            font-size: .7rem;
+            letter-spacing: 3px;
+            color: var(--c);
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+        }
+        .hud-card-title::before {
+            content: '';
+            width: 6px; height: 6px;
+            background: var(--c);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--c);
+        }
+
+        .hud-input {
+            background: rgba(0,255,231,.04) !important;
+            border: 1px solid rgba(0,255,231,.25) !important;
+            color: #c8d8f0 !important;
+            border-radius: 3px !important;
+            font-family: 'JetBrains Mono', monospace !important;
+            font-size: .85rem !important;
+        }
+        .hud-input::placeholder { color: rgba(200,216,240,.3) !important; }
+        .hud-input:focus {
+            outline: none !important;
+            box-shadow: 0 0 0 1px var(--c), var(--glow) !important;
+            border-color: var(--c) !important;
+            background: rgba(0,255,231,.07) !important;
+        }
+
+        .btn-watch {
+            font-family: 'Orbitron', monospace;
+            font-size: .7rem;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, var(--c), #7b2fff);
+            color: var(--bg);
+            border: none;
+            border-radius: 3px;
+            padding: .55rem 1.5rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            transition: all .25s;
+            white-space: nowrap;
+        }
+        .btn-watch:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 30px rgba(0,255,231,.45);
+            filter: brightness(1.15);
+        }
+
+        /* ── MAIN DATA TABLE ────────────────────────────────── */
+        .table-wrapper {
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(10,15,30,.6);
+            backdrop-filter: blur(16px);
+            animation: fadeSlideUp .6s .1s ease both;
+        }
+
+        /* corner brackets decoration */
+        .table-wrapper::before,
+        .table-wrapper::after {
+            content: '';
+            position: absolute;
+            width: 16px; height: 16px;
+            border-color: var(--c);
+            border-style: solid;
+        }
+
+        .table-title-bar {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            padding: .9rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0,255,231,.03);
+        }
+        .table-title-bar span {
+            font-family: 'Orbitron', monospace;
+            font-size: .7rem;
+            letter-spacing: 3px;
+            color: var(--c);
+            text-transform: uppercase;
+        }
+        .table-title-bar .counter {
+            margin-left: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .72rem;
+            color: rgba(200,216,240,.3);
+        }
+
+        table.sentinel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        .sentinel-table thead th {
+            background: rgba(0,255,231,.05);
+            color: rgba(0,255,231,.6);
+            font-family: 'Orbitron', monospace;
+            font-size: .62rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: .85rem 1rem;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        .sentinel-table tbody tr {
+            border-bottom: 1px solid rgba(255,255,255,.04);
+            transition: background .15s;
+            animation: fadeIn .4s ease both;
+        }
+        .sentinel-table tbody tr:hover {
+            background: rgba(0,255,231,.04) !important;
+        }
+        .sentinel-table tbody tr.row-down {
+            background: rgba(255,45,120,.05);
+        }
+        .sentinel-table tbody tr.row-down:hover {
+            background: rgba(255,45,120,.09) !important;
+        }
+        .sentinel-table td {
+            padding: 1rem;
+            vertical-align: middle;
+            color: #c8d8f0;
+            font-size: .82rem;
+        }
+        @keyframes fadeIn { from{opacity:0} to{opacity:1} }
+
+        .asset-name {
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: #e8f0ff;
+        }
+        .asset-symbol {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .65rem;
+            color: rgba(0,255,231,.45);
+            letter-spacing: 1px;
+            margin-top: 2px;
+        }
+
+        .price-current {
+            color: var(--c);
+            font-weight: 700;
+            font-size: .9rem;
+            text-shadow: 0 0 12px rgba(0,255,231,.3);
+        }
+        .price-prev { color: rgba(200,216,240,.35); font-size: .78rem; }
+
+        .badge-up, .badge-down {
+            font-family: 'Orbitron', monospace;
+            font-size: .58rem;
+            letter-spacing: 1px;
+            padding: .3rem .75rem;
+            border-radius: 2px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+        }
+        .badge-up {
+            background: rgba(57,255,20,.1);
+            color: var(--g);
+            border: 1px solid rgba(57,255,20,.3);
+        }
+        .badge-down {
+            background: rgba(255,45,120,.1);
+            color: var(--m);
+            border: 1px solid rgba(255,45,120,.3);
+            animation: pulseDanger 2s ease-in-out infinite;
+        }
+        @keyframes pulseDanger {
+            0%,100%{ box-shadow: none; }
+            50%    { box-shadow: 0 0 14px rgba(255,45,120,.35); }
+        }
+
+        .chart-container { width: 120px; height: 40px; display: block; margin: 0 auto; }
+
+        .heartbeat {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .7rem;
+            color: rgba(200,216,240,.3);
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+            justify-content: center;
+        }
+        .heartbeat-dot {
+            width: 6px; height: 6px;
+            background: var(--g);
+            border-radius: 50%;
+            animation: blink 2s ease infinite;
+            box-shadow: 0 0 6px var(--g);
+        }
+
+        .btn-del {
+            background: transparent;
+            border: 1px solid rgba(255,45,120,.3);
+            color: rgba(255,45,120,.6);
+            border-radius: 3px;
+            width: 30px; height: 30px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .8rem;
+            transition: all .2s;
+            text-decoration: none;
+        }
+        .btn-del:hover {
+            background: rgba(255,45,120,.15);
+            color: var(--m);
+            box-shadow: var(--glow-m);
+            border-color: var(--m);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 1rem;
+            font-family: 'Orbitron', monospace;
+            font-size: .75rem;
+            letter-spacing: 2px;
+            color: rgba(200,216,240,.2);
+            text-transform: uppercase;
+        }
+
+        /* ── ALERTS TABLE ───────────────────────────────────── */
+        .alerts-section { margin-top: 3rem; animation: fadeSlideUp .6s .2s ease both; }
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: .75rem;
+            margin-bottom: 1rem;
+        }
+        .section-header h3 {
+            font-family: 'Orbitron', monospace;
+            font-size: .8rem;
+            letter-spacing: 3px;
+            color: var(--y);
+            text-transform: uppercase;
+        }
+        .section-header .line {
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, rgba(255,210,0,.3), transparent);
+        }
+        .badge-sys {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .6rem;
+            letter-spacing: 1px;
+            background: rgba(255,210,0,.1);
+            color: var(--y);
+            border: 1px solid rgba(255,210,0,.25);
+            border-radius: 2px;
+            padding: .2rem .6rem;
+            text-transform: uppercase;
+        }
+
+        .alerts-wrapper {
+            border: 1px solid rgba(255,210,0,.2);
+            border-radius: 4px;
+            overflow: hidden;
+            background: rgba(10,15,30,.6);
+            backdrop-filter: blur(16px);
+        }
+        .sentinel-table.alerts thead th {
+            color: rgba(255,210,0,.6);
+            background: rgba(255,210,0,.04);
+            border-bottom-color: rgba(255,210,0,.2);
+        }
+        .alert-crypto { color: #e8f0ff; font-weight: 700; font-family: 'Rajdhani', sans-serif; font-size: 1rem; }
+        .alert-price   { color: var(--c); }
+        .alert-drop    { color: var(--m); font-weight: 700; }
+        .alert-time    { color: rgba(200,216,240,.3); font-size: .7rem; text-align: right; }
+
+        /* ── FOOTER ─────────────────────────────────────────── */
+        .sentinel-footer {
+            text-align: center;
+            padding: 3rem 1rem 2rem;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .65rem;
+            letter-spacing: 2px;
+            color: rgba(200,216,240,.15);
+            text-transform: uppercase;
+        }
+
+        /* ── SCROLLBAR ──────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: var(--bg); }
+        ::-webkit-scrollbar-thumb { background: rgba(0,255,231,.25); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,231,.5); }
+
+        /* ── RESPONSIVE ─────────────────────────────────────── */
+        @media (max-width: 576px) {
+            .hero-title { font-size: 2rem; }
+            .sentinel-table td, .sentinel-table th { padding: .6rem .5rem; }
+        }
     </style>
 </head>
-<body class="bg-body-tertiary">
+<body>
 
-<div class="container-fluid pt-3 pe-4 text-end">
-    <button class="btn btn-outline-secondary rounded-pill shadow-sm px-4" onclick="toggleDarkMode()">
-        🌓 Cambiar Tema
-    </button>
-</div>
+<!-- Background depth blobs -->
+<div class="bg-blob bg-blob-1"></div>
+<div class="bg-blob bg-blob-2"></div>
+<div class="bg-blob bg-blob-3"></div>
 
-<div class="container py-4">
+<!-- ── NAVBAR ──────────────────────────────────────────────── -->
+<nav class="navbar sticky-top sentinel-wrap">
+    <div class="container-fluid px-4">
+        <div class="d-flex align-items-center gap-3">
+            <span class="dot-live"></span>
+            <span class="brand">
+                SENTINEL <span class="ver">/ v0.1</span>
+            </span>
+        </div>
+        <div class="d-flex gap-2 align-items-center">
+            <a sec:authorize="!isAuthenticated()" th:href="@{/login}"
+               class="btn-hud">⌥ Admin</a>
+            <form sec:authorize="isAuthenticated()" th:action="@{/logout}" method="post" class="m-0">
+                <button type="submit" class="btn-hud btn-hud-danger">⏻ Salir</button>
+            </form>
+            <button class="btn-hud" onclick="toggleDarkMode()">◑</button>
+        </div>
+    </div>
+</nav>
 
-    <div class="text-center mb-5">
-        <h1 class="display-3 fw-bolder text-primary mb-3">🚀 Crypto Sentinel</h1>
-        <p class="lead text-secondary mb-4">Monitorización en tiempo real y alertas inteligentes</p>
+<!-- ── MAIN CONTENT ────────────────────────────────────────── -->
+<div class="sentinel-wrap container py-2">
 
-        <div th:if="${fng != null}" class="alert shadow-sm d-inline-block py-2 px-4 rounded-pill border-0"
-             th:classappend="${fng.value_classification.contains('Fear')} ? 'bg-danger-subtle text-danger' : 'bg-success-subtle text-success'">
-            <span class="text-uppercase small fw-bold opacity-75">Sentimiento del Mercado:</span>
-            <span class="ms-2 fw-bold fs-5" th:text="${fng.value} + ' - ' + ${fng.value_classification}">50 - Neutral</span>
+    <!-- HERO -->
+    <div class="hero">
+        <div class="hero-label">◆ Sistema de Vigilancia de Activos Digitales ◆</div>
+        <h1 class="hero-title">CRYPTO SENTINEL</h1>
+
+        <div th:if="${fng != null}"
+             th:classappend="${fng.value_classification.contains('Fear')} ? 'fng-badge fear' : 'fng-badge greed'"
+             class="fng-badge">
+            <span class="label">Índice Mercado</span>
+            <span th:text="${fng.value}">50</span>
+            <span>·</span>
+            <span th:text="${fng.value_classification}">Neutral</span>
         </div>
     </div>
 
-    <div class="row g-4 mb-5">
-        <div class="col-lg-7">
-            <div class="card shadow-sm h-100">
-                <div class="card-body p-4">
-                    <h5 class="card-title fw-bold mb-3 text-primary">➕ Vigilar nueva moneda</h5>
-                    <form action="/add" method="POST" class="d-flex gap-2">
-                        <input type="text" name="symbol" class="form-control form-control-lg bg-body"
-                               placeholder="ID de CoinGecko (ej: solana, aave)" required>
-                        <button type="submit" class="btn btn-primary btn-lg px-4 fw-bold shadow-sm">Añadir</button>
-                    </form>
-                </div>
+    <!-- TELEGRAM BANNER -->
+    <div class="tg-banner mt-4">
+        <div class="d-flex flex-wrap align-items-center gap-3 justify-content-between">
+            <div>
+                <h4>⟡ DELYSZ BOT &mdash; ALERTAS EN TIEMPO REAL</h4>
+                <p class="mt-1">Recibe señales instantáneas en tu móvil cuando el mercado se mueva. Acceso gratuito.</p>
+            </div>
+            <a href="https://t.me/Delysz_bot" target="_blank" class="btn-tg">
+                <i class="bi bi-telegram"></i> @Delysz_bot
+            </a>
+        </div>
+    </div>
+
+    <!-- CONTROLS ROW -->
+    <div class="row g-3 mb-4">
+        <div class="col-lg-7" sec:authorize="isAuthenticated()">
+            <div class="hud-card" style="animation-delay:.05s">
+                <div class="hud-card-title">Añadir Activo al Radar</div>
+                <form action="/add" method="POST" class="d-flex gap-2">
+                    <input type="text" name="symbol"
+                           class="form-control hud-input flex-grow-1"
+                           placeholder="ID de CoinGecko — ej: solana, bitcoin" required>
+                    <button type="submit" class="btn-watch">Vigilar</button>
+                </form>
             </div>
         </div>
 
-        <div class="col-lg-5">
-            <div class="card shadow-sm h-100">
-                <div class="card-body p-4 d-flex flex-column justify-content-center">
-                    <h5 class="card-title fw-bold mb-3 text-secondary">🔍 Filtrado rápido</h5>
-                    <input type="text" id="searchInput" class="form-control form-control-lg bg-body"
-                           placeholder="Buscar por nombre o símbolo..." onkeyup="filterTable()">
-                </div>
+        <div th:class="${#authorization.expression('isAuthenticated()')} ? 'col-lg-5' : 'col-lg-12'">
+            <div class="hud-card" style="animation-delay:.1s">
+                <div class="hud-card-title">Filtrado de Activos</div>
+                <input type="text" id="searchInput"
+                       class="form-control hud-input"
+                       placeholder="Buscar por nombre o símbolo..."
+                       onkeyup="filterTable()">
             </div>
         </div>
     </div>
 
-    <div class="card shadow-lg mb-5 overflow-hidden">
+    <!-- MAIN CRYPTO TABLE -->
+    <div class="table-wrapper position-relative">
+        <div class="table-title-bar">
+            <span>◈ Activos en Seguimiento</span>
+            <span class="counter" id="assetCount">— activos</span>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover table-v-align mb-0" id="cryptoTable">
-                <thead class="table-dark glass-header">
+            <table class="sentinel-table" id="cryptoTable">
+                <thead>
                 <tr>
-                    <th class="ps-4 py-3">Activo</th>
-                    <th class="py-3">Símbolo</th>
-                    <th class="py-3">Precio Actual</th>
-                    <th class="py-3">Anterior</th>
-                    <th class="py-3">Estado</th>
-                    <th class="py-3 text-center">Gráfico (15m)</th> <th class="py-3">Últ. Latido</th>
-                    <th class="text-center pe-4 py-3">Acción</th>
+                    <th class="ps-4 text-start">Activo</th>
+                    <th class="text-end">Precio Actual</th>
+                    <th class="text-end">Anterior</th>
+                    <th class="text-center">Estado</th>
+                    <th class="text-center">Gráfico 15m</th>
+                    <th class="text-center">Latido</th>
+                    <th sec:authorize="isAuthenticated()" class="text-center pe-4">×</th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr th:each="c : ${cryptos}" th:classappend="${c.lastPrice != null and c.price < c.lastPrice} ? 'table-danger' : ''">
-                    <td class="ps-4 fw-bold fs-5" th:text="${c.name}">Bitcoin</td>
-                    <td><span class="badge bg-secondary text-light px-2 py-1" th:text="${c.symbol.toUpperCase()}">BTC</span></td>
-                    <td class="fw-bold" th:text="${'$' + #numbers.formatDecimal(c.price, 1, 6)}">$0.00</td>
-                    <td class="text-secondary" th:text="${c.lastPrice != null ? '$' + #numbers.formatDecimal(c.lastPrice, 1, 6) : '-'}">-</td>
-                    <td>
-                        <span th:if="${c.lastPrice != null and c.price < c.lastPrice}" class="badge bg-danger rounded-pill px-3">📉 BAJANDO</span>
-                        <span th:unless="${c.lastPrice != null and c.price < c.lastPrice}" class="badge bg-success rounded-pill px-3">📈 ESTABLE</span>
+                <tr th:each="c : ${cryptos}"
+                    th:classappend="${c.lastPrice != null and c.price < c.lastPrice} ? 'row-down' : ''">
+                    <!-- Asset -->
+                    <td class="ps-4">
+                        <div class="asset-name" th:text="${c.name}">Bitcoin</div>
+                        <div class="asset-symbol" th:text="${c.symbol.toUpperCase()}">BTC</div>
                     </td>
-
+                    <!-- Current price -->
+                    <td class="text-end price-current"
+                        th:text="${'$' + #numbers.formatDecimal(c.price, 1, 6)}">$0.00</td>
+                    <!-- Prev price -->
+                    <td class="text-end price-prev"
+                        th:text="${c.lastPrice != null ? '$' + #numbers.formatDecimal(c.lastPrice, 1, 6) : '—'}">—</td>
+                    <!-- Status -->
                     <td class="text-center">
-                        <div class="chart-container">
-                            <canvas class="crypto-chart" th:data-history="${c.priceHistory}"></canvas>
+                        <span th:if="${c.lastPrice != null and c.price < c.lastPrice}"
+                              class="badge-down">▼ BAJANDO</span>
+                        <span th:unless="${c.lastPrice != null and c.price < c.lastPrice}"
+                              class="badge-up">▲ ESTABLE</span>
+                    </td>
+                    <!-- Chart -->
+                    <td class="text-center">
+                        <canvas class="crypto-chart chart-container"
+                                th:data-history="${c.priceHistory}"></canvas>
+                    </td>
+                    <!-- Heartbeat -->
+                    <td>
+                        <div class="heartbeat">
+                            <span class="heartbeat-dot"></span>
+                            <span th:text="${#temporals.format(c.lastUpdated, 'HH:mm:ss')}">00:00</span>
                         </div>
                     </td>
-
-                    <td class="text-muted font-monospace small" th:text="${#temporals.format(c.lastUpdated, 'HH:mm:ss')}">00:00:00</td>
-                    <td class="text-center pe-4">
-                        <a th:href="@{/delete/{id}(id=${c.id})}" class="btn btn-sm btn-outline-danger rounded-circle" title="Dejar de vigilar" onclick="return confirm('¿Dejar de vigilar?')">🗑️</a>
+                    <!-- Delete -->
+                    <td sec:authorize="isAuthenticated()" class="text-center pe-4">
+                        <a th:href="@{/delete/{id}(id=${c.id})}"
+                           class="btn-del"
+                           onclick="return confirm('¿Dejar de vigilar este activo?')">✕</a>
                     </td>
                 </tr>
+                <!-- Empty state -->
                 <tr th:if="${#lists.isEmpty(cryptos)}">
-                    <td colspan="8" class="text-center text-muted py-5">
-                        <h4>Aún no estás vigilando ninguna moneda.</h4>
-                        <p>Usa el panel superior para añadir tu primer activo.</p>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            ◌ Sin activos en el radar —<br>
+                            <span style="opacity:.4">añade el primero arriba</span>
+                        </div>
                     </td>
                 </tr>
                 </tbody>
@@ -107,98 +709,120 @@
         </div>
     </div>
 
-    <div class="d-flex align-items-center mb-3 mt-5">
-        <h3 class="fw-bold text-warning mb-0 me-2">📜 Historial de Alertas</h3>
-        <span class="badge bg-warning text-dark rounded-pill">Últimas 10</span>
+    <!-- ALERTS SECTION -->
+    <div class="alerts-section">
+        <div class="section-header">
+            <h3>◈ Historial de Alertas</h3>
+            <div class="badge-sys">Sistema Automatizado</div>
+            <div class="line"></div>
+        </div>
+
+        <div class="alerts-wrapper">
+            <div class="table-responsive">
+                <table class="sentinel-table alerts">
+                    <thead>
+                    <tr>
+                        <th class="ps-4 text-start">Activo</th>
+                        <th class="text-end">Precio en Alerta</th>
+                        <th class="text-end">Caída Registrada</th>
+                        <th class="pe-4 text-end">Fecha / Hora</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="a : ${alerts}">
+                        <td class="ps-4 alert-crypto" th:text="${a.cryptoName}">Bitcoin</td>
+                        <td class="text-end alert-price font-monospace"
+                            th:text="${'$' + #numbers.formatDecimal(a.priceAtAlert, 1, 4)}">$0.00</td>
+                        <td class="text-end alert-drop"
+                            th:text="${#numbers.formatDecimal(a.dropPercentage, 1, 2) + '%'}">-10%</td>
+                        <td class="pe-4 alert-time"
+                            th:text="${#temporals.format(a.timestamp, 'dd/MM HH:mm:ss')}">18:00</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
-    <div class="card shadow-sm border-warning border-opacity-50">
-        <div class="table-responsive">
-            <table class="table table-sm table-borderless table-striped mb-0">
-                <thead class="table-warning text-dark">
-                <tr>
-                    <th class="ps-4 py-2">Cripto</th>
-                    <th class="py-2">Precio de Alerta</th>
-                    <th class="py-2">Caída Registrada</th>
-                    <th class="pe-4 py-2 text-end">Hora Exacta</th>
-                </tr>
-                </thead>
-                <tbody>
-                <tr th:each="a : ${alerts}">
-                    <td class="ps-4 fw-bold" th:text="${a.cryptoName}">Bitcoin</td>
-                    <td class="font-monospace" th:text="${'$' + #numbers.formatDecimal(a.priceAtAlert, 1, 4)}">$0.00</td>
-                    <td class="text-danger fw-bold" th:text="${#numbers.formatDecimal(a.dropPercentage, 1, 2) + '%'}">-10%</td>
-                    <td class="pe-4 text-end text-muted font-monospace" th:text="${#temporals.format(a.timestamp, 'dd/MM HH:mm:ss')}">18:00</td>
-                </tr>
-                <tr th:if="${#lists.isEmpty(alerts)}">
-                    <td colspan="4" class="text-center text-muted py-4">El mercado está tranquilo. No hay alertas recientes.</td>
-                </tr>
-                </tbody>
-            </table>
-        </div>
+    <!-- FOOTER -->
+    <div class="sentinel-footer">
+        ◆ Delysz Crypto Sentinel v0.1 — Datos proporcionados por CoinGecko ◆
     </div>
 
 </div>
 
+<!-- ── SCRIPTS ──────────────────────────────────────────────── -->
 <script>
-    function filterTable() {
-        let input = document.getElementById("searchInput").value.toUpperCase();
-        let rows = document.querySelector("#cryptoTable tbody").rows;
-        for (let i = 0; i < rows.length; i++) {
-            if(rows[i].cells.length < 2) continue;
-            let text = rows[i].textContent.toUpperCase();
-            rows[i].style.display = text.includes(input) ? "" : "none";
-        }
-    }
-
+    /* Dark / light toggle */
     function toggleDarkMode() {
         const html = document.documentElement;
-        const currentTheme = html.getAttribute("data-bs-theme");
-        html.setAttribute("data-bs-theme", currentTheme === "dark" ? "light" : "dark");
+        html.setAttribute('data-bs-theme',
+            html.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark');
     }
 
-    // EL SCRIPT DE CHART.JS QUE DIBUJA LAS GRÁFICAS
-    document.addEventListener("DOMContentLoaded", function() {
-        const charts = document.querySelectorAll('.crypto-chart');
+    /* Table search filter */
+    function filterTable() {
+        const input = document.getElementById('searchInput').value.toUpperCase();
+        const rows = document.querySelector('#cryptoTable tbody').rows;
+        let visible = 0;
+        for (let i = 0; i < rows.length; i++) {
+            if (rows[i].cells.length < 2) continue;
+            const match = rows[i].textContent.toUpperCase().includes(input);
+            rows[i].style.display = match ? '' : 'none';
+            if (match) visible++;
+        }
+        document.getElementById('assetCount').textContent = visible + ' activos';
+    }
 
-        charts.forEach(canvas => {
-            const rawData = canvas.getAttribute('data-history');
-            if (!rawData || rawData === '[]') return;
+    /* Asset count on load */
+    document.addEventListener('DOMContentLoaded', () => {
+        const rows = document.querySelectorAll('#cryptoTable tbody tr');
+        let count = 0;
+        rows.forEach(r => { if (r.cells.length > 1) count++; });
+        document.getElementById('assetCount').textContent = count + ' activos';
 
-            const dataPoints = JSON.parse(rawData);
-            if (dataPoints.length < 2) return; // Necesitamos al menos 2 puntos para una línea
+        /* Mini sparkline charts */
+        document.querySelectorAll('.crypto-chart').forEach(canvas => {
+            const raw = canvas.getAttribute('data-history');
+            if (!raw || raw === '[]') return;
+            const pts = JSON.parse(raw);
+            if (pts.length < 2) return;
 
-            const isGoingUp = dataPoints[dataPoints.length - 1] >= dataPoints[0];
-            const lineColor = isGoingUp ? '#198754' : '#dc3545'; // Tonos nativos de Bootstrap
-            const gradientColor = isGoingUp ? 'rgba(25, 135, 84, 0.2)' : 'rgba(220, 53, 69, 0.2)';
+            const up = pts[pts.length - 1] >= pts[0];
+            const col = up ? '#00ffe7' : '#ff2d78';
+            const gradCol = up ? 'rgba(0,255,231,.15)' : 'rgba(255,45,120,.12)';
+
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.offsetHeight || 40);
+            grad.addColorStop(0, gradCol);
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
 
             new Chart(canvas, {
                 type: 'line',
                 data: {
-                    labels: dataPoints.map((_, i) => i),
+                    labels: pts.map((_, i) => i),
                     datasets: [{
-                        data: dataPoints,
-                        borderColor: lineColor,
-                        backgroundColor: gradientColor,
-                        borderWidth: 2,
+                        data: pts,
+                        borderColor: col,
+                        borderWidth: 1.5,
                         fill: true,
+                        backgroundColor: grad,
                         tension: 0.4,
-                        pointRadius: 0,
-                        pointHoverRadius: 0
+                        pointRadius: 0
                     }]
                 },
                 options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    animation: false, // Evita animaciones raras al refrescar
+                    responsive: false,
+                    animation: false,
                     plugins: { legend: { display: false }, tooltip: { enabled: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { display: false }
-                    },
-                    layout: { padding: 0 }
+                    scales: { x: { display: false }, y: { display: false } }
                 }
             });
+        });
+
+        /* Stagger row entrance animations */
+        document.querySelectorAll('#cryptoTable tbody tr').forEach((tr, i) => {
+            tr.style.animationDelay = `${i * 0.04}s`;
         });
     });
 </script>

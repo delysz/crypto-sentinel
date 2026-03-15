@@ -23,7 +23,7 @@ Crypto Sentinel es una aplicación web desarrollada en **Spring Boot** que monit
 
 1. Clona este repositorio:
    ```bash
-   git clone [https://github.com/TU_USUARIO/crypto-sentinel.git](https://github.com/TU_USUARIO/crypto-sentinel.git)
+   git clone [https://github.com/delysz/crypto-sentinel.git](https://github.com/delysz/crypto-sentinel.git)
    ```
 
 2. Configura las variables de entorno en tu sistema o IDE para proteger tus credenciales:

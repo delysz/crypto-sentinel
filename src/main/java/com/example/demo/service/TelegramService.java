@@ -1,29 +1,37 @@
 package com.example.demo.service;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 public class TelegramService {
-    private static WebClient webClient = null;
 
-    // REEMPLAZA ESTO CON TUS DATOS REALES
-    private final String TOKEN = "8722639958:AAGBS50hg9Hkeg9bi0jPUtkeMIZolIiXcMI";
-    private static final String CHAT_ID = "17762448";
+    private final WebClient webClient;
 
-    public TelegramService(WebClient.Builder builder) {
-        this.webClient = builder.baseUrl("https://api.telegram.org/bot" + TOKEN).build();
+    @Value("${TELEGRAM_BOT_TOKEN}")
+    private String token;
+
+    @Value("${TELEGRAM_CHAT_ID}")
+    private String chatId;
+
+    public TelegramService(WebClient.Builder builder,
+                           @Value("${TELEGRAM_BOT_TOKEN}") String token) {
+        this.webClient = builder
+                .baseUrl("https://api.telegram.org/bot" + token)
+                .build();
     }
 
-    public static void sendMessage(String text) {
+    // NO static
+    public void sendMessage(String text) {
         webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/sendMessage")
-                        .queryParam("chat_id", CHAT_ID)
+                        .queryParam("chat_id", chatId)
                         .queryParam("text", text)
                         .build())
                 .retrieve()
                 .bodyToMono(String.class)
-                .subscribe(); // Esto lo envía "al aire" sin bloquear tu programa
+                .subscribe();
     }
 }

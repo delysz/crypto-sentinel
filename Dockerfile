@@ -14,7 +14,7 @@ RUN mvn clean package -Dmaven.test.skip=true
 # ==========================================
 # ETAPA 2: EJECUCIÓN (El servidor final)
 # ==========================================
-FROM eclipse-temurin:21-jdk-alpine
+FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Copiamos el .jar que acaba de fabricar la Etapa 1 a esta nueva máquina limpia

@@ -13,7 +13,12 @@ public class CoinGeckoService {
     private final WebClient webClient;
 
     public CoinGeckoService(WebClient.Builder builder) {
-        this.webClient = builder.baseUrl("https://api.coingecko.com/api/v3").build();
+        // 🎭 Añadimos cabeceras de navegador real para intentar saltar el bloqueo por IP
+        this.webClient = builder
+                .baseUrl("https://api.coingecko.com/api/v3")
+                .defaultHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                .defaultHeader("Accept", "application/json")
+                .build();
     }
 
     public Map<String, PriceResponse> getMultiplePrices(String ids) {
@@ -32,7 +37,9 @@ public class CoinGeckoService {
     }
 
     public FearGreedResponse.FearGreedData getFearAndGreedIndex() {
-        FearGreedResponse response = webClient.get()
+        // Usamos una petición limpia para la API alternativa externa
+        WebClient simpleClient = WebClient.builder().build();
+        FearGreedResponse response = simpleClient.get()
                 .uri("https://api.alternative.me/fng/")
                 .retrieve()
                 .bodyToMono(FearGreedResponse.class)

@@ -47,7 +47,7 @@ public class DashboardController {
         return "redirect:/";
     }
 
-    @GetMapping("/delete/{id}")
+    @PostMapping("/delete/{id}")
     public String delete(@PathVariable Long id) {
         repository.deleteById(id);
         return "redirect:/";

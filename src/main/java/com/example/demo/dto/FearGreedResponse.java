@@ -1,16 +1,22 @@
 package com.example.demo.dto;
 
-import lombok.Data;
+// Lombok removed – explicit getters/setters added
 
 import java.util.List;
 
-@Data
 public class FearGreedResponse {
-    private List<FearGreedData> data;
+     private List<FearGreedData> data;
 
-    @Data
-    public static class FearGreedData {
+    public List<FearGreedData> getData() { return data; }
+    public void setData(List<FearGreedData> data) { this.data = data; }
+
+     public static class FearGreedData {
         private String value;
         private String value_classification;
-    }
-}
+
+        public String getValue() { return value; }
+        public void setValue(String value) { this.value = value; }
+        public String getValue_classification() { return value_classification; }
+        public void setValue_classification(String value_classification) { this.value_classification = value_classification; }
+     }
+ }

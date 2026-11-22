@@ -5,11 +5,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSRF (solo si está habilitado en SecurityConfig; portfolio.js lo envía en PUT/POST/DELETE) -->
+    <meta th:if="${_csrf != null}" name="_csrf" th:content="${_csrf.token}">
+    <meta th:if="${_csrf != null}" name="_csrf_header" th:content="${_csrf.headerName}">
     <title>Delysz Crypto Sentinel</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=JetBrains+Mono:wght@300;400;700&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <style>
         /* ── VARIABLES ──────────────────────────────────────── */
         :root {
@@ -546,10 +549,90 @@
         ::-webkit-scrollbar-thumb { background: rgba(0,255,231,.25); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(0,255,231,.5); }
 
+        /* ── PORTFOLIO ──────────────────────────────────────── */
+        .portfolio-section { margin-top: 3rem; animation: fadeSlideUp .6s .15s ease both; }
+        .portfolio-section .section-header h3 { color: var(--c); }
+        .portfolio-section .section-header .line { background: linear-gradient(90deg, rgba(0,255,231,.3), transparent); }
+        .portfolio-section .section-header .badge-sys { background: rgba(0,255,231,.08); color: var(--c); border-color: rgba(0,255,231,.25); }
+
+        .pf-kpi-label {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: .62rem; letter-spacing: 2px; text-transform: uppercase;
+            color: rgba(200,216,240,.4); margin-bottom: .35rem;
+        }
+        .pf-kpi-value {
+            font-family: 'Orbitron', monospace; font-weight: 700;
+            font-size: clamp(1.05rem, 2.4vw, 1.45rem); color: #e8f0ff;
+            word-break: break-word;
+        }
+        .pf-kpi-sub { font-family: 'JetBrains Mono', monospace; font-size: .78rem; margin-top: .2rem; color: rgba(200,216,240,.4); }
+        .pf-pos { color: var(--g) !important; }
+        .pf-neg { color: var(--m) !important; }
+        .pf-neutral { color: #c8d8f0; }
+        .hud-card.pf-kpi { padding: 1.1rem 1.25rem; }
+
+        .pf-risk-badge {
+            font-family: 'Orbitron', monospace; font-size: .7rem; font-weight: 700; letter-spacing: 2px;
+            padding: .3rem .8rem; border-radius: 2px; border: 1px solid; display: inline-block;
+        }
+        .pf-risk-low    { color: var(--g); border-color: rgba(57,255,20,.35);  background: rgba(57,255,20,.08); }
+        .pf-risk-medium { color: var(--y); border-color: rgba(255,210,0,.35);  background: rgba(255,210,0,.08); }
+        .pf-risk-high   { color: var(--m); border-color: rgba(255,45,120,.4);  background: rgba(255,45,120,.1); box-shadow: 0 0 12px rgba(255,45,120,.25); }
+        .pf-risk-none   { color: rgba(200,216,240,.4); border-color: rgba(200,216,240,.15); }
+        .pf-risk-rec {
+            font-size: .82rem; color: rgba(200,216,240,.5); margin-top: .45rem; line-height: 1.25;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .pf-btn-xs { padding: .2rem .55rem; font-size: .65rem; }
+        .btn-hud:disabled { opacity: .45; cursor: not-allowed; }
+
+        .pf-chart-box { position: relative; height: 260px; }
+        .pf-chart-empty { padding: 3.5rem 1rem; }
+        .pf-select {
+            width: auto; display: inline-block; padding: .15rem 1.8rem .15rem .5rem !important;
+            font-size: .7rem !important; margin-left: auto;
+        }
+        .hud-input option { background: var(--s1); color: #c8d8f0; }
+
+        #holdingsTable th[data-sort] { cursor: pointer; user-select: none; }
+        #holdingsTable th[data-sort]:hover, #holdingsTable th[data-sort]:focus { color: var(--c); outline: none; }
+        .pf-sort { font-size: .55rem; margin-left: .25rem; }
+        .pf-small { font-size: .7rem; opacity: .8; }
+        .pf-edit-input { max-width: 130px; margin-left: auto; text-align: right; }
+        .pf-row-edit { background: rgba(0,255,231,.05); }
+        .pf-row-error { color: var(--m); font-size: .7rem; margin-top: .25rem; white-space: normal; max-width: 160px; margin-inline: auto; }
+        .pf-row-error:empty { display: none; }
+        .pf-type {
+            font-family: 'JetBrains Mono', monospace; font-size: .62rem; letter-spacing: 1px;
+            padding: .15rem .5rem; border-radius: 2px; border: 1px solid; text-transform: uppercase;
+        }
+        .pf-type-crypto { color: var(--c); border-color: rgba(0,255,231,.3); }
+        .pf-type-etf    { color: #a77bff; border-color: rgba(123,47,255,.45); }
+        .pf-type-stock  { color: var(--y); border-color: rgba(255,210,0,.3); }
+        .btn-export { text-decoration: none; white-space: nowrap; }
+        .pf-no-pulse { animation: none; }
+
+        .pf-form-error { color: var(--m); font-size: .8rem; min-height: 1.1rem; margin-top: .4rem; }
+        .pf-hint { font-family: 'JetBrains Mono', monospace; font-size: .7rem; color: rgba(0,255,231,.5); min-height: 1rem; margin-top: .3rem; }
+        .pf-form-label { font-family: 'JetBrains Mono', monospace; font-size: .62rem; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(200,216,240,.45); margin-bottom: .25rem; }
+
+        .pf-flash {
+            position: fixed; right: 1rem; bottom: 1rem; z-index: 1080; max-width: min(92vw, 380px);
+            font-family: 'JetBrains Mono', monospace; font-size: .78rem;
+            padding: .7rem 1rem; border-radius: 3px; border: 1px solid; backdrop-filter: blur(12px);
+            opacity: 0; transform: translateY(10px); pointer-events: none; transition: all .25s;
+        }
+        .pf-flash.show { opacity: 1; transform: translateY(0); }
+        .pf-flash-ok  { color: var(--c); border-color: rgba(0,255,231,.4); background: rgba(3,7,15,.9); }
+        .pf-flash-err { color: var(--m); border-color: rgba(255,45,120,.45); background: rgba(3,7,15,.9); }
+
         /* ── RESPONSIVE ─────────────────────────────────────── */
         @media (max-width: 576px) {
             .hero-title { font-size: 2rem; }
             .sentinel-table td, .sentinel-table th { padding: .6rem .5rem; }
+            .pf-chart-box { height: 220px; }
+            .table-title-bar { flex-wrap: wrap; padding: .75rem 1rem; }
+            .pf-edit-input { max-width: 95px; }
         }
     </style>
 </head>
@@ -616,7 +699,7 @@
         <div class="col-lg-7" sec:authorize="isAuthenticated()">
             <div class="hud-card" style="animation-delay:.05s">
                 <div class="hud-card-title">Añadir Activo al Radar</div>
-                <form action="/add" method="POST" class="d-flex gap-2">
+                <form th:action="@{/add}" method="post" class="d-flex gap-2">
                     <input type="text" name="symbol"
                            class="form-control hud-input flex-grow-1"
                            placeholder="ID de CoinGecko — ej: solana, bitcoin" required>
@@ -690,9 +773,10 @@
                     </td>
                     <!-- Delete -->
                     <td sec:authorize="isAuthenticated()" class="text-center pe-4">
-                        <a th:href="@{/delete/{id}(id=${c.id})}"
-                           class="btn-del"
-                           onclick="return confirm('¿Dejar de vigilar este activo?')">✕</a>
+                        <form th:action="@{/delete/{id}(id=${c.id})}" method="post" class="m-0 d-inline"
+                              onsubmit="return confirm('¿Dejar de vigilar este activo?')">
+                            <button type="submit" class="btn-del" title="Dejar de vigilar">✕</button>
+                        </form>
                     </td>
                 </tr>
                 <!-- Empty state -->
@@ -708,6 +792,179 @@
             </table>
         </div>
     </div>
+
+    <!-- ── PORTFOLIO SECTION (datos vía fetch → /api/portfolio/**, /api/alerts) ── -->
+    <section id="portfolioSection" class="portfolio-section" sec:authorize="isAuthenticated()"
+             data-currency="USD" aria-labelledby="portfolioTitle">
+        <div class="section-header flex-wrap">
+            <h3 id="portfolioTitle">◈ Mi Cartera</h3>
+            <div class="badge-sys">Cripto · ETF · Acciones</div>
+            <div class="line"></div>
+            <button type="button" class="btn-hud" id="btnRefreshPortfolio" title="Actualizar datos de cartera">
+                <i class="bi bi-arrow-clockwise"></i> Actualizar
+            </button>
+        </div>
+
+        <!-- KPI ROW -->
+        <div class="row g-3 mb-3">
+            <div class="col-6 col-lg-3">
+                <div class="hud-card pf-kpi">
+                    <div class="pf-kpi-label">Valor total</div>
+                    <div class="pf-kpi-value" id="kpiTotal">…</div>
+                </div>
+            </div>
+            <div class="col-6 col-lg-3">
+                <div class="hud-card pf-kpi">
+                    <div class="pf-kpi-label">Invertido</div>
+                    <div class="pf-kpi-value" id="kpiInvested">…</div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="hud-card pf-kpi">
+                    <div class="pf-kpi-label">Ganancia / Pérdida</div>
+                    <div class="pf-kpi-value" id="kpiPL">…</div>
+                    <div class="pf-kpi-sub" id="kpiPLPct">&nbsp;</div>
+                </div>
+            </div>
+            <div class="col-12 col-sm-6 col-lg-3">
+                <div class="hud-card pf-kpi">
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div class="pf-kpi-label">Nivel de riesgo</div>
+                        <button type="button" class="btn-hud pf-btn-xs" id="btnRecalcRisk" title="Recalcular evaluación de riesgo">
+                            <i class="bi bi-arrow-repeat"></i> Recalcular
+                        </button>
+                    </div>
+                    <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                        <span class="pf-risk-badge pf-risk-none" id="kpiRiskBadge">…</span>
+                        <span class="pf-kpi-sub mt-0" id="kpiRiskScore"></span>
+                    </div>
+                    <div class="pf-risk-rec" id="kpiRiskRec"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CHARTS ROW -->
+        <div class="row g-3 mb-3">
+            <div class="col-lg-4">
+                <div class="hud-card">
+                    <div class="hud-card-title">Distribución</div>
+                    <div class="pf-chart-box"><canvas id="distChart" aria-label="Distribución de la cartera por tipo de activo" role="img"></canvas></div>
+                    <div class="empty-state pf-chart-empty" id="distEmpty" style="display:none">
+                        ◌ Sin valor en cartera<br><span style="opacity:.5">añade posiciones para ver el reparto</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="hud-card">
+                    <div class="hud-card-title">
+                        Rendimiento histórico
+                        <select id="perfDays" class="form-select form-select-sm hud-input pf-select" aria-label="Periodo">
+                            <option value="7">7 días</option>
+                            <option value="30" selected>30 días</option>
+                            <option value="90">90 días</option>
+                            <option value="365">1 año</option>
+                        </select>
+                    </div>
+                    <div class="pf-chart-box"><canvas id="perfChart" aria-label="Evolución del valor de la cartera" role="img"></canvas></div>
+                    <div class="empty-state pf-chart-empty" id="perfEmpty" style="display:none">
+                        ◌ Sin historial de rendimiento todavía
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOLDINGS TABLE -->
+        <div class="table-wrapper position-relative mb-3">
+            <div class="table-title-bar">
+                <span>◈ Posiciones</span>
+                <span class="counter" id="holdingsCount">— posiciones</span>
+                <a th:href="@{/api/portfolio/export.csv}" href="/api/portfolio/export.csv"
+                   class="btn-hud btn-export" download>
+                    <i class="bi bi-download"></i> Exportar CSV
+                </a>
+            </div>
+            <div class="table-responsive">
+                <table class="sentinel-table" id="holdingsTable">
+                    <thead>
+                    <tr>
+                        <th class="ps-3 text-start" data-sort="name" tabindex="0">Activo<span class="pf-sort"></span></th>
+                        <th class="text-center" data-sort="type" tabindex="0">Tipo<span class="pf-sort"></span></th>
+                        <th class="text-end" data-sort="quantity" tabindex="0">Cantidad<span class="pf-sort"></span></th>
+                        <th class="text-end" data-sort="averageBuyPrice" tabindex="0">P. medio<span class="pf-sort"></span></th>
+                        <th class="text-end" data-sort="currentPrice" tabindex="0">Precio<span class="pf-sort"></span></th>
+                        <th class="text-end" data-sort="marketValue" tabindex="0">Valor<span class="pf-sort"></span></th>
+                        <th class="text-end" data-sort="invested" tabindex="0">Invertido<span class="pf-sort"></span></th>
+                        <th class="text-end" data-sort="profitLoss" tabindex="0">G / P<span class="pf-sort"></span></th>
+                        <th class="text-center pe-3">Editar</th>
+                    </tr>
+                    </thead>
+                    <tbody id="holdingsBody">
+                    <tr><td colspan="9"><div class="empty-state" style="padding:2rem 1rem">◌ Cargando posiciones…</div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- PRICE ALERTS -->
+        <div class="row g-3">
+            <div class="col-lg-4">
+                <div class="hud-card">
+                    <div class="hud-card-title">Nueva alerta de precio</div>
+                    <form id="alertForm" novalidate>
+                        <div class="mb-2">
+                            <label class="pf-form-label" for="alertAsset">Activo</label>
+                            <select id="alertAsset" name="assetSymbol" class="form-select hud-input" required>
+                                <option value="">Cargando…</option>
+                            </select>
+                            <div class="pf-hint" id="alertHint"></div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col-6">
+                                <label class="pf-form-label" for="alertType">Condición</label>
+                                <select id="alertType" name="alertType" class="form-select hud-input">
+                                    <option value="above">Sube por encima de</option>
+                                    <option value="below">Cae por debajo de</option>
+                                </select>
+                            </div>
+                            <div class="col-6">
+                                <label class="pf-form-label" for="alertTarget">Precio objetivo</label>
+                                <input id="alertTarget" name="targetPrice" type="text" inputmode="decimal"
+                                       class="form-control hud-input" placeholder="0,00" required>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn-watch w-100 mt-1">Crear alerta</button>
+                        <div class="pf-form-error" id="alertError" role="alert"></div>
+                    </form>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="alerts-wrapper h-100">
+                    <div class="table-title-bar" style="border-bottom-color:rgba(255,210,0,.2);background:rgba(255,210,0,.03)">
+                        <span style="color:var(--y)">◈ Alertas de precio activas</span>
+                        <span class="counter" id="priceAlertsCount">—</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="sentinel-table alerts">
+                            <thead>
+                            <tr>
+                                <th class="ps-3 text-start">Activo</th>
+                                <th class="text-center">Condición</th>
+                                <th class="text-end">Objetivo</th>
+                                <th class="text-end d-none d-md-table-cell">Creada</th>
+                                <th class="text-center pe-3">×</th>
+                            </tr>
+                            </thead>
+                            <tbody id="priceAlertsBody">
+                            <tr><td colspan="5"><div class="empty-state" style="padding:2rem 1rem">◌ Cargando alertas…</div></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="pfFlash" class="pf-flash" role="status" aria-live="polite"></div>
+    </section>
 
     <!-- ALERTS SECTION -->
     <div class="alerts-section">
@@ -826,5 +1083,6 @@
         });
     });
 </script>
+<script sec:authorize="isAuthenticated()" th:src="@{/js/portfolio.js}" src="/js/portfolio.js" defer></script>
 </body>
 </html>

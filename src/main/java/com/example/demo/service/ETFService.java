@@ -8,7 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 import java.util.Arrays;
 import java.util.List;
 
@@ -59,6 +59,7 @@ public class ETFService {
                 asset.setLastPrice(price);
                 asset.setLastUpdated(java.time.LocalDateTime.now());
                 return cryptoRepository.save(asset);
+            });
         }
         // Process stocks
         List<String> stockSymbols = Arrays.stream(stockSymbolsConfig.split(","))

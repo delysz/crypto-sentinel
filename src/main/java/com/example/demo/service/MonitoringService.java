@@ -53,7 +53,6 @@ public class MonitoringService {
             }
         }
     }
-    }
 
     // The following methods were part of the legacy implementation and are no longer used.
     // They have been removed to keep the codebase clean.

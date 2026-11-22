@@ -14,7 +14,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // Para que los formularios funcionen fácil
+                // CSRF activo (por defecto): los formularios usan th:action y portfolio.js envía el token en cabecera
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/").permitAll() // Público para ver
                         .requestMatchers("/css/**", "/js/**", "/img/**").permitAll() // Estilos públicos

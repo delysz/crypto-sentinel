@@ -16,7 +16,9 @@
 
 	<properties>
 		<java.version>21</java.version>
-		<lombok.version>1.18.36</lombok.version>
+		<lombok.version>1.18.42</lombok.version>
+		<!-- Byte Buddy >= 1.17.7 necesario para Mockito en JDK 25 -->
+		<byte-buddy.version>1.17.7</byte-buddy.version>
 	</properties>
 
 	<dependencies>
@@ -59,6 +61,17 @@
 			<artifactId>h2</artifactId>
 			<scope>runtime</scope>
     	</dependency>
+		<!-- Test dependencies -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -73,7 +86,7 @@
 						<path>
 							<groupId>org.projectlombok</groupId>
 							<artifactId>lombok</artifactId>
-							<version>1.18.36</version>
+							<version>${lombok.version}</version>
 						</path>
 					</annotationProcessorPaths>
 				</configuration>

@@ -47,6 +47,26 @@ Esta edición está personalizada con la marca **Delysz** — estética neón, i
 | 📊 **Sparklines 15m** | Gráficos de tendencia por activo generados con Chart.js sin dependencias externas |
 | 🗄️ **Persistencia** | Base de datos H2 en modo archivo — los datos sobreviven a reinicios del servidor |
 | 🐳 **Docker ready** | Imagen contenedorizada y lista para desplegar en Render o cualquier cloud provider |
+ | 🏦 **Soporte ampliado** | Además de criptomonedas, el sistema soporta ETFs, acciones y otros activos financieros. Se usan APIs públicas para obtener precios actuales. |
+ 
+ ## 📄 API Reference
+ 
+ The application exposes a minimal REST API for managing the list of monitored assets. All endpoints are protected by Spring Security when accessing the admin panel. The public dashboard is served at `/` and does not require authentication.
+ 
+ | Method | Endpoint | Description | Example | Auth |
+ |--------|----------|-------------|---------|------|
+ | `GET` | `/` | Render the dashboard home page, displaying the list of assets, recent alerts, and the Fear & Greed Index. | `/` | Public |
+ | `POST` | `/add` | Add a new asset to the monitoring list. Requires `symbol` as a form parameter. | `POST /add` with body `symbol=btc` | Admin |
+ | `GET` | `/delete/{id}` | Delete an asset by its database ID. | `GET /delete/5` | Admin |
+ 
+ ## 📦 Data Models
+ 
+ The system uses two primary entities stored in an H2 database:
+ 
+ - **CryptoAsset** – Represents a cryptocurrency being monitored. Fields: `id` (auto-generated), `symbol`, `name`, `price`, `lastUpdated`.
+ - **AlertLog** – Stores alerts when a monitored asset falls below a configured threshold. Fields: `id`, `asset` (many-to-one), `price`, `timestamp`.
+ 
+ All model definitions can be found in the `src/main/java/com/example/demo/model` package.
 
 ---
 

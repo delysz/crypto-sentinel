@@ -26,75 +26,37 @@ public class MonitoringService {
     @Autowired private CryptoRepository repository;
     @Autowired private TelegramService telegramService;
     @Autowired private AlertLogRepository alertLogRepository;
+    // Map of providers per asset type
+    @Autowired private java.util.Map<com.example.demo.model.AssetType, com.example.demo.service.price.PriceProvider> providers;
 
     @Scheduled(fixedRate = 300000) // 5 minutos
     public void checkAllCryptos() {
         List<CryptoAsset> assetsInDb = repository.findAll();
         if (assetsInDb.isEmpty()) return;
 
-        String idsToQuery = assetsInDb.stream()
-                .map(asset -> asset.getSymbol().toLowerCase().trim())
-                .collect(Collectors.joining(","));
-
-        System.out.println("🔍 Consultando a CoinGecko: " + idsToQuery);
-
-        try {
-            Map<String, PriceResponse> prices = cryptoService.getMultiplePrices(idsToQuery);
-            System.out.println("📦 Respuesta de la API: " + prices);
-
-            if (prices != null && !prices.isEmpty()) {
-                processAndSavePrices(assetsInDb, prices);
+        for (CryptoAsset asset : assetsInDb) {
+            String symbol = asset.getSymbol().toLowerCase();
+            com.example.demo.service.price.PriceProvider provider = providers.get(asset.getType());
+            if (provider == null) {
+                System.out.println("⚠️ No hay proveedor configurado para tipo: " + asset.getType());
+                continue;
             }
-        } catch (RuntimeException e) {
-            if (e.getMessage() != null && e.getMessage().contains("429")) {
-                System.out.println("⏳ CoinGecko 429 detectado. ¡Activando plan de rescate con Binance API! 🛟");
-                fallbackToBinance(assetsInDb);
-            } else {
-                System.out.println("❌ Error al consultar CoinGecko: " + e.getMessage());
+            try {
+                Double precioActual = provider.getPrice(symbol);
+                if (precioActual == null) {
+                    System.out.println("⚠️ Precio no disponible para " + symbol + " (tipo: " + asset.getType() + ")");
+                    continue;
+                }
+                updateAssetPrice(asset, precioActual);
+            } catch (Exception e) {
+                System.err.println("❌ Error al obtener precio para " + symbol + ": " + e.getMessage());
             }
         }
     }
-
-    private void processAndSavePrices(List<CryptoAsset> assetsInDb, Map<String, PriceResponse> prices) {
-        assetsInDb.forEach(asset -> {
-            PriceResponse data = prices.get(asset.getSymbol().toLowerCase());
-            if (data != null && data.getPrice() != null) {
-                updateAssetPrice(asset, data.getPrice());
-            } else {
-                System.out.println("⚠️ No se encontraron datos en CoinGecko para: " + asset.getSymbol());
-            }
-        });
     }
 
-    // 🛟 PLAN DE RESCATE: Consulta uno a uno a Binance (Inmune a bloqueos por IP de Render)
-    private void fallbackToBinance(List<CryptoAsset> assetsInDb) {
-        WebClient binanceClient = WebClient.builder().baseUrl("https://api.binance.com/api/v3").build();
-
-        assetsInDb.forEach(asset -> {
-            try {
-                // Traducimos el símbolo a formato Binance estándar (ej: link -> LINKUSDT, bitcoin -> BTCUSDT)
-                String symbol = asset.getSymbol().equalsIgnoreCase("bitcoin") ? "BTC" :
-                        asset.getSymbol().equalsIgnoreCase("ethereum") ? "ETH" :
-                                asset.getSymbol().toUpperCase();
-
-                String binancePair = symbol + "USDT";
-
-                Map<String, String> response = binanceClient.get()
-                        .uri(uriBuilder -> uriBuilder.path("/ticker/price").queryParam("symbol", binancePair).build())
-                        .retrieve()
-                        .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, String>>() {})
-                        .block();
-
-                if (response != null && response.containsKey("price")) {
-                    Double precioActual = Double.parseDouble(response.get("price"));
-                    updateAssetPrice(asset, precioActual);
-                    System.out.println("🎰 Binance rescató con éxito: " + binancePair + " = $" + precioActual);
-                }
-            } catch (Exception e) {
-                System.out.println("❌ Tampoco se pudo obtener de Binance el activo: " + asset.getSymbol());
-            }
-        });
-    }
+    // The following methods were part of the legacy implementation and are no longer used.
+    // They have been removed to keep the codebase clean.
 
     private void updateAssetPrice(CryptoAsset asset, Double precioActual) {
         Double precioAnterior = asset.getPrice();
@@ -111,10 +73,13 @@ public class MonitoringService {
         repository.save(asset);
         System.out.println("✅ Actualizado " + asset.getName() + " a $" + precioActual);
 
-        if (precioAnterior != null && precioAnterior > 0) {
-            double variacion = (precioActual - precioAnterior) / precioAnterior;
-            if (variacion <= alertThreshold) {
-                telegramService.sendMessage("🚨 Alerta en " + asset.getName() + " ha caído un " + String.format("%.2f", Math.abs(variacion * 100)) + "%");
+            if (precioAnterior != null && precioAnterior > 0) {
+                double variacion = (precioActual - precioAnterior) / precioAnterior;
+                System.out.println("🔎 Variación de " + asset.getName() + ": " + String.format("%.2f%%", variacion * 100));
+                if (variacion <= alertThreshold) {
+                    String msg = "🚨 Alerta en " + asset.getName() + " ha caído un " + String.format("%.2f", Math.abs(variacion * 100)) + "%";
+                    System.out.println("📩 Enviando mensaje: " + msg);
+                    telegramService.sendMessage(msg);
 
                 AlertLog log = new AlertLog();
                 log.setCryptoName(asset.getName());

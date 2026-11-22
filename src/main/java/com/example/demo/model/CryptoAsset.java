@@ -1,6 +1,8 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import lombok.Data;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -17,6 +19,9 @@ public class CryptoAsset {
     private String name;
     private Double price;
     private Double lastPrice;
+    // NEW: Tipo de activo (Crypto, ETF, Stock, etc.)
+    @Enumerated(EnumType.STRING)
+    private AssetType type = AssetType.CRYPTO;
     private LocalDateTime lastUpdated;
 
     // ESTO ES LO QUE HACE QUE LA GRÁFICA EXISTA

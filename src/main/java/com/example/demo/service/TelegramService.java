@@ -24,6 +24,11 @@ public class TelegramService {
 
     // NO static
     public void sendMessage(String text) {
+        if (chatId == null || chatId.isBlank()) {
+            System.err.println("⚠️ chat_id no está configurado. No se enviará el mensaje.");
+            return;
+        }
+        // Build the request URL with required query parameters
         webClient.post()
                 .uri(uriBuilder -> uriBuilder
                         .path("/sendMessage")
@@ -32,6 +37,7 @@ public class TelegramService {
                         .build())
                 .retrieve()
                 .bodyToMono(String.class)
+                .doOnError(e -> System.err.println("❌ Error al enviar mensaje a Telegram: " + e.getMessage()))
                 .subscribe();
     }
 }

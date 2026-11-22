@@ -740,7 +740,7 @@
                 </thead>
                 <tbody>
                 <tr th:each="c : ${cryptos}"
-                    th:classappend="${c.lastPrice != null and c.price < c.lastPrice} ? 'row-down' : ''">
+                    th:classappend="${c.price != null and c.lastPrice != null and c.price < c.lastPrice} ? 'row-down' : ''">
                     <!-- Asset -->
                     <td class="ps-4">
                         <div class="asset-name" th:text="${c.name}">Bitcoin</div>
@@ -748,15 +748,15 @@
                     </td>
                     <!-- Current price -->
                     <td class="text-end price-current"
-                        th:text="${'$' + #numbers.formatDecimal(c.price, 1, 6)}">$0.00</td>
+                        th:text="${c.price != null ? '$' + #numbers.formatDecimal(c.price, 1, 6) : '—'}">—</td>
                     <!-- Prev price -->
                     <td class="text-end price-prev"
                         th:text="${c.lastPrice != null ? '$' + #numbers.formatDecimal(c.lastPrice, 1, 6) : '—'}">—</td>
                     <!-- Status -->
                     <td class="text-center">
-                        <span th:if="${c.lastPrice != null and c.price < c.lastPrice}"
+                        <span th:if="${c.price != null and c.lastPrice != null and c.price < c.lastPrice}"
                               class="badge-down">▼ BAJANDO</span>
-                        <span th:unless="${c.lastPrice != null and c.price < c.lastPrice}"
+                        <span th:unless="${c.price != null and c.lastPrice != null and c.price < c.lastPrice}"
                               class="badge-up">▲ ESTABLE</span>
                     </td>
                     <!-- Chart -->
